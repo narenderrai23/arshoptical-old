@@ -36,10 +36,10 @@ class SiteController extends Controller
         $sections          = Page::where('tempname', $this->activeTemplate)->where('slug', 'home')->first();
         $todayDealProducts = Product::active()->where('today_deals', 1)->latest()->take(8)->get();
         $cats = Category::active()->where('featured', 1)->orderBy('orderno')->take(6)->get();
-         $categories = Category::active()->orderBy('orderno')->get();
+        $categories = Category::active()->orderBy('orderno')->get();
         $brands = Brand::where('status', 1)->where('featured', 1)->latest()->take(2)->get();
-        $products = Product::active()->where('hot_deals',1)->latest()->with('reviews')->take(6)->get();
-        return view($this->activeTemplate . 'home', compact('pageTitle', 'sections', 'todayDealProducts','categories','brands','products','cats'));
+        $products = Product::active()->where('hot_deals', 1)->latest()->with('reviews')->take(6)->get();
+        return view($this->activeTemplate . 'home', compact('pageTitle', 'sections', 'todayDealProducts', 'categories', 'brands', 'products', 'cats'));
     }
 
     public function pages($slug)
@@ -351,10 +351,10 @@ class SiteController extends Controller
         return view($this->activeTemplate . 'products.show_products', compact('products', 'emptyMessage'));
     }
 
-        public function categoryProducts(Request $request, $id, $name)
+    public function categoryProducts(Request $request, $id, $name)
     {
 
-        $orderBy=$request->has('orderBy') ? $request->orderBy : null;
+        $orderBy = $request->has('orderBy') ? $request->orderBy : null;
 
         $pageTitle    = $name . ' - Products';
         $emptyMessage = 'No product found';
@@ -362,20 +362,20 @@ class SiteController extends Controller
         $categoryId    = 0;
         $subcategoryId = 0;
         $catmeta = null;
-        
+
         $products->sorting($orderBy);
         if ($request->route()->getName() == 'category.products') {
             $categoryId    = $id;
             //$products      = $products->where('category_id', $categoryId);
             $subcategories = SubCategory::where('category_id', $categoryId)
                 ->withCount('product')->where('status', 1)->get();
-                $catmeta=Category::where('id', $categoryId)->first();
+            $catmeta = Category::where('id', $categoryId)->first();
         }
 
         if ($request->route()->getName() == 'subcategory.products') {
             $subcategoryId = $id;
-            $catmeta=SubCategory::where('id', $subcategoryId)->first();
-           // $products      = $products->where('subcategory_id', $subcategoryId);
+            $catmeta = SubCategory::where('id', $subcategoryId)->first();
+            // $products      = $products->where('subcategory_id', $subcategoryId);
             $subcategories = null;
         }
 
@@ -393,21 +393,21 @@ class SiteController extends Controller
         $brandId  = array_unique($brandArray);
         $brands   = Brand::whereIn('id', $brandId)->where('status', 1)->withCount('product')->get();
 
-$products = $products->filterProduct($id);
-    //return  $products->dump();
+        $products = $products->filterProduct($id);
+        //return  $products->dump();
         $products = $products->latest()->paginate(getPaginate());
 
-        
-        if($request->ajax()) {
-            return view('templates.basic.products.partials.mainProduct', compact('pageTitle','catmeta', 'emptyMessage', 'products', 'minPrice', 'maxPrice', 'subcategories', 'brands', 'categoryId', 'subcategoryId', 'orderBy'));
+
+        if ($request->ajax()) {
+            return view('templates.basic.products.partials.mainProduct', compact('pageTitle', 'catmeta', 'emptyMessage', 'products', 'minPrice', 'maxPrice', 'subcategories', 'brands', 'categoryId', 'subcategoryId', 'orderBy'));
         }
 
-        return view($this->activeTemplate . 'products.category_products', compact('pageTitle', 'catmeta','emptyMessage', 'products', 'minPrice', 'maxPrice', 'subcategories', 'brands', 'categoryId', 'subcategoryId', 'orderBy'));
+        return view($this->activeTemplate . 'products.category_products', compact('pageTitle', 'catmeta', 'emptyMessage', 'products', 'minPrice', 'maxPrice', 'subcategories', 'brands', 'categoryId', 'subcategoryId', 'orderBy'));
     }
 
     public function brandProducts(Request $request, $id, $name)
     {
-    
+
         $brandId      = $id;
         $pageTitle    = $name . ' - Products';
         $emptyMessage = 'No product found';
@@ -477,7 +477,7 @@ $products = $products->filterProduct($id);
     public function productDetail($id, $name)
     {
         $emptyMessage = 'No review found.';
-    
+
         $product        = Product::active()->with('category', 'productGallery', 'reviews.user')->findOrFail($id);
         $pageTitle      = $product->name;
         $relatedProduct = Product::active()->where('subcategory_id',  $product->subcategory_id)->get();
@@ -524,16 +524,16 @@ $products = $products->filterProduct($id);
     }
 
 
-	public function accountDeletion(Request $request)
+    public function accountDeletion(Request $request)
     {
-	$pageTitle ="Deletion Request";
-	return view($this->activeTemplate . 'delaccount',compact('pageTitle'));
-    } 
+        $pageTitle = "Deletion Request";
+        return view($this->activeTemplate . 'delaccount', compact('pageTitle'));
+    }
 
-	 public function blogdetails(Request $request, $id)
-    	{
-        	$blog      = Blogs::where('id', $id)->first();
-        	$pageTitle ="Blogs";
-        	return view($this->activeTemplate . 'blogs', compact('blog','pageTitle'));
-    	}
+    public function blogdetails(Request $request, $id)
+    {
+        $blog      = Blogs::where('id', $id)->first();
+        $pageTitle = "Blogs";
+        return view($this->activeTemplate . 'blogs', compact('blog', 'pageTitle'));
+    }
 }
