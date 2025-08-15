@@ -15,8 +15,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Str;
 
-class RegisterController extends Controller {
+class RegisterController extends Controller
+{
+    public $activeTemplate;
+
     /*
     |--------------------------------------------------------------------------
     | Register Controller
@@ -35,21 +39,19 @@ class RegisterController extends Controller {
      *
      * @return void
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->middleware('guest');
         $this->middleware('regStatus')->except('registrationNotAllowed');
 
         $this->activeTemplate = activeTemplate();
     }
 
-    public function showRegistrationForm() {
+    public function showRegistrationForm()
+    {
         $pageTitle   = "Sign Up";
         $info        = json_decode(json_encode(getIpInfo()), true);
-        // $mobile_code = @implode(',', $info['code']);
-        $mobile_code = $info['code'] ?? '';
-        if (is_array($mobile_code)) {
-            $mobile_code = implode(',', $mobile_code);
-        }
+        $mobile_code = @implode(',', $info['code']);
         $countries   = json_decode(file_get_contents(resource_path('views/partials/country.json')));
         return view($this->activeTemplate . 'user.auth.register', compact('pageTitle', 'mobile_code', 'countries'));
     }
@@ -60,7 +62,8 @@ class RegisterController extends Controller {
      * @param  array $data
      * @return \Illuminate\Contracts\Validation\Validator
      */
-    protected function validator(array $data) {
+    protected function validator(array $data)
+    {
         $general             = GeneralSetting::first();
         $password_validation = Password::min(6);
 
@@ -94,32 +97,23 @@ class RegisterController extends Controller {
         return $validate;
     }
 
-    public function register(Request $request) {
+    public function register(Request $request)
+    {
+        $this->validateRegistration($request);
 
-         //dd($request->all());
-        $this->validator($request->all())->validate();
-        $exist = User::where('mobile', $request->mobile_code . $request->mobile)->first();
-
-        if ($exist) {
-            $notify[] = ['error', 'The mobile number already exists'];
+        if ($request->filled('captcha') && !captchaVerify($request->captcha, $request->captcha_secret)) {
+            $notify[] = ['error', 'Invalid captcha'];
             return back()->withNotify($notify)->withInput();
         }
 
-        if (isset($request->captcha)) {
+        $user = $this->createFromRequest($request);
 
-            if (!captchaVerify($request->captcha, $request->captcha_secret)) {
-                $notify[] = ['error', "Invalid captcha"];
-                return back()->withNotify($notify)->withInput();
-            }
-
-        }
-
-        event(new Registered($user = $this->create($request->all())));
+        event(new Registered($user));
 
         $this->guard()->login($user);
 
         return $this->registered($request, $user)
-        ?: redirect($this->redirectPath());
+            ?: redirect($this->redirectPath());
     }
 
     /**
@@ -128,122 +122,163 @@ class RegisterController extends Controller {
      * @param  array $data
      * @return \App\User
      */
-    protected function create(array $data) {
+    protected function create(array $data)
+    {
+        // Backward-compatible signature; delegate to Request-based creation
+        $request = new Request($data);
+        return $this->createFromRequest($request);
+    }
 
+    protected function validateRegistration(Request $request): array
+    {
         $general = GeneralSetting::first();
 
-        $referBy = session()->get('reference');
-
-        if ($referBy) {
-            $referUser = User::where('username', $referBy)->first();
-        } else {
-            $referUser = null;
+        $passwordRule = Password::min(6);
+        if ($general->secure_password) {
+            $passwordRule = $passwordRule->mixedCase()->numbers()->symbols()->uncompromised();
         }
 
-        //User Create
+        $agreeRule = $general->agree ? 'required' : 'nullable';
+
+        $countryData  = (array) json_decode(file_get_contents(resource_path('views/partials/country.json')));
+        $countryCodes = implode(',', array_keys($countryData));
+        $mobileCodes  = implode(',', array_column($countryData, 'dial_code'));
+        $countries    = implode(',', array_column($countryData, 'country'));
+
+        return $request->validate([
+            'firstname'    => 'sometimes|required|string|max:50',
+            'lastname'     => 'sometimes|required|string|max:50',
+            'email'        => 'required|string|email|max:90|unique:users',
+            'mobile'       => 'required|string|max:50|unique:users',
+            'password'     => ['required', 'confirmed', $passwordRule],
+            'username'     => 'required|alpha_num|unique:users|min:6',
+            'captcha'      => 'sometimes|required',
+            'mobile_code'  => 'required|in:' . $mobileCodes,
+            'country_code' => 'required|in:' . $countryCodes,
+            'country'      => 'required|in:' . $countries,
+            'agree'        => $agreeRule,
+        ]);
+    }
+
+    protected function createFromRequest(Request $request): User
+    {
+        $general  = GeneralSetting::first();
+        $referBy  = session()->get('reference');
+        $referUser = $referBy ? User::where('username', $referBy)->first() : null;
+
         $user               = new User();
-        $user->firstname    = isset($data['firstname']) ? $data['firstname'] : null;
-        $user->lastname     = isset($data['lastname']) ? $data['lastname'] : null;
-        $user->email        = strtolower(trim($data['email']));
-        $user->password     = Hash::make($data['password']);
-        $user->username     = trim($data['username']);
+        $user->firstname    = $request->input('firstname') ?: null;
+        $user->lastname     = $request->input('lastname') ?: null;
+        $user->email        = Str::lower(trim((string) $request->input('email')));
+        $user->password     = Hash::make((string) $request->input('password'));
+        $user->username     = trim((string) $request->input('username'));
         $user->ref_by       = $referUser ? $referUser->id : 0;
-        $user->country_code = $data['country_code'];
-       // $user->mobile       = $data['mobile_code'] . $data['mobile'];
-         $user->mobile       = $data['mobile'];
-        $user->address      = [
+        $user->country_code = (string) $request->input('country_code');
+        $user->mobile       = (string) $request->input('mobile');
+        $user->address      = $this->buildAddressArray($request);
+        $user->status       = 0;
+        $user->ev           = $general->ev ? 0 : 1;
+        $user->sv           = $general->sv ? 0 : 1;
+        $user->ts           = 0;
+        $user->tv           = 1;
+        $user->notification = now();
+        $user->save();
+
+        $this->notifyAdminOfRegistration($user);
+        $this->recordLoginFromRequest($user, $request);
+        $this->syncSessionCartAndWishlist($user);
+
+        return $user;
+    }
+
+    protected function buildAddressArray(Request $request): array
+    {
+        return [
             'address' => '',
             'state'   => '',
             'zip'     => '',
-            'country' => isset($data['country']) ? $data['country'] : null,
+            'country' => $request->input('country'),
             'city'    => '',
         ];
-        $user->status = 0;
-        $user->ev     = $general->ev ? 0 : 1;
-        $user->sv     = $general->sv ? 0 : 1;
-        $user->ts     = 0;
-        $user->tv     = 1;
-        $user->save();
+    }
 
-        $adminNotification            = new AdminNotification();
-        $adminNotification->user_id   = $user->id;
-        $adminNotification->title     = 'New member registered';
-        $adminNotification->click_url = urlPath('admin.users.detail', $user->id);
+    protected function notifyAdminOfRegistration(User $user): void
+    {
+        $adminNotification              = new AdminNotification();
+        $adminNotification->user_id     = $user->id;
+        $adminNotification->title       = 'New member registered';
+        $adminNotification->click_url   = urlPath('admin.users.detail', $user->id);
         $adminNotification->save();
+    }
 
-        //Login Log Create
-        $ip        = $_SERVER["REMOTE_ADDR"];
-        $exist     = UserLogin::where('user_ip', $ip)->first();
+    protected function recordLoginFromRequest(User $user, Request $request): void
+    {
+        $ip        = $request->ip();
+        $existing  = UserLogin::where('user_ip', $ip)->first();
         $userLogin = new UserLogin();
 
-//Check exist or not
-        if ($exist) {
-            $userLogin->longitude    = $exist->longitude;
-            $userLogin->latitude     = $exist->latitude;
-            $userLogin->city         = $exist->city;
-            $userLogin->country_code = $exist->country_code;
-            $userLogin->country      = $exist->country;
+        if ($existing) {
+            $userLogin->longitude    = $existing->longitude;
+            $userLogin->latitude     = $existing->latitude;
+            $userLogin->city         = $existing->city;
+            $userLogin->country_code = $existing->country_code;
+            $userLogin->country      = $existing->country;
         } else {
-            $info                    = json_decode(json_encode(getIpInfo()), true);
-            $userLogin->longitude    = @implode(',', $info['long']);
-            $userLogin->latitude     = @implode(',', $info['lat']);
-            $userLogin->city         = @implode(',', $info['city']);
-            $userLogin->country_code = @implode(',', $info['code']);
-            $userLogin->country      = @implode(',', $info['country']);
+            $info = json_decode(json_encode(getIpInfo()), true);
+            $userLogin->longitude    = isset($info['long']) ? implode(',', (array) $info['long']) : null;
+            $userLogin->latitude     = isset($info['lat']) ? implode(',', (array) $info['lat']) : null;
+            $userLogin->city         = isset($info['city']) ? implode(',', (array) $info['city']) : null;
+            $userLogin->country_code = isset($info['code']) ? implode(',', (array) $info['code']) : null;
+            $userLogin->country      = isset($info['country']) ? implode(',', (array) $info['country']) : null;
         }
 
         $userAgent          = osBrowser();
         $userLogin->user_id = $user->id;
         $userLogin->user_ip = $ip;
-
-        $userLogin->browser = @$userAgent['browser'];
-        $userLogin->os      = @$userAgent['os_platform'];
+        $userLogin->browser = $userAgent['browser'] ?? null;
+        $userLogin->os      = $userAgent['os_platform'] ?? null;
         $userLogin->save();
+    }
 
-
+    protected function syncSessionCartAndWishlist(User $user): void
+    {
         $carts = session()->get('cart');
-
         if ($carts) {
-
-            foreach ($carts as $data) {
-                $cart = Cart::where('user_id', $user->id)->where('product_id', $data['product_id'])->first();
+            foreach ($carts as $item) {
+                $cart = Cart::where('user_id', $user->id)
+                    ->where('product_id', $item['product_id'])
+                    ->first();
 
                 if (!$cart) {
                     $cart             = new Cart();
                     $cart->user_id    = $user->id;
-                    $cart->product_id = $data['product_id'];
+                    $cart->product_id = $item['product_id'];
                 }
 
-                $cart->quantity += $data['quantity'];
+                $cart->quantity += $item['quantity'];
                 $cart->save();
-
             }
-
         }
 
         $wishlist = session()->get('wishlist');
-
         if ($wishlist) {
+            foreach ($wishlist as $item) {
+                $existingWishlist = Wishlist::where('user_id', $user->id)
+                    ->where('product_id', $item['product_id'])
+                    ->first();
 
-            foreach ($wishlist as $data) {
-
-                $wishlist = Wishlist::where('user_id', $user->id)->where('product_id', $data['product_id'])->first();
-
-                if (!$wishlist) {
-                    $wishlist             = new Wishlist();
-                    $wishlist->user_id    = $user->id;
-                    $wishlist->product_id = $data['product_id'];
-                    $wishlist->save();
+                if (!$existingWishlist) {
+                    $newWishlist             = new Wishlist();
+                    $newWishlist->user_id    = $user->id;
+                    $newWishlist->product_id = $item['product_id'];
+                    $newWishlist->save();
                 }
-
             }
-
         }
-
-        return $user;
     }
 
-    public function checkUser(Request $request) {
+    public function checkUser(Request $request)
+    {
         $exist['data'] = null;
         $exist['type'] = null;
         if ($request->email) {
@@ -264,8 +299,8 @@ class RegisterController extends Controller {
         return response($exist);
     }
 
-    public function registered() {
+    public function registered()
+    {
         return redirect()->route('user.home');
     }
-
 }

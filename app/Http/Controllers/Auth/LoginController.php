@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Cart;
 use App\Models\Extension;
 use App\Models\UserLogin;
 use App\Models\Wishlist;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class LoginController extends Controller {
     /*
@@ -93,55 +93,51 @@ class LoginController extends Controller {
     //     return $fieldType;
     // }
     public function findUsername() {
-        $loginInput = request()->input('login'); // 'login' instead of 'username'
+        $login = request()->input('login');
 
-        if (is_array($loginInput)) {
-            return null;
+        if (!$login) {
+            return 'username'; // Default fallback
         }
 
-        $login = is_string($loginInput) ? trim($loginInput) : '';
-
-        if ($login !== '' && filter_var($login, FILTER_VALIDATE_EMAIL)) {
+        if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
             $fieldType = 'email';
-        } elseif ($login !== '' && preg_match('/^[0-9]{10}$/', $login)) {
+        } elseif (preg_match('/^[0-9]{10}$/', $login)) {
             $fieldType = 'mobile';
         } else {
-            return null;
+            $fieldType = 'username'; // Default for any other input
         }
 
         request()->merge([$fieldType => $login]);
         return $fieldType;
     }
-
+    
 
     public function username() {
-        return $this->username; 
+        return $this->findUsername(); 
     }
+
+
     
 
     protected function validateLogin(Request $request) {
+
         if (!$this->username()) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'login' => 'Invalid login credentials.'
-            ]);
+            return redirect()->route('user.login')
+                ->withErrors(['login' => 'Invalid login credentials.'])
+                ->withInput();
         }
-
-        $customRecaptcha = Extension::where('act', 'custom-captcha')
-            ->where('status', 1)
-            ->first();
-
+        $customRecaptcha = Extension::where('act', 'custom-captcha')->where('status', 1)->first();
         $validation_rule = [
             $this->username() => 'required|string',
             'password'        => 'required|string',
         ];
-
+    
         if ($customRecaptcha) {
             $validation_rule['captcha'] = 'required';
         }
-
+    
         $request->validate($validation_rule);
     }
-
     
 
     public function logout() {
@@ -153,7 +149,7 @@ class LoginController extends Controller {
         return redirect()->route('user.login')->withNotify($notify);
     }
 
-    public function authenticated(Request $request, User $user) {
+    public function authenticated(Request $request, $user) {
 
         if ($user->status == 0) {
             $this->guard()->logout();
