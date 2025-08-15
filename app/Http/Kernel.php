@@ -73,5 +73,6 @@ class Kernel extends HttpKernel
         'checkStatus' => \App\Http\Middleware\CheckStatus::class,
         'checkStatusApi' => \App\Http\Middleware\CheckStatusApi::class,
         'demo' => \App\Http\Middleware\Demo::class,
+        'production.error' => \App\Http\Middleware\ProductionErrorHandler::class,
     ];
 }

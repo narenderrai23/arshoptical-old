@@ -5,6 +5,17 @@ use Illuminate\Support\Facades\Route;
 Route::get('/clear', function () {
     \Illuminate\Support\Facades\Artisan::call('optimize:clear');
 });
+
+// Under Development page route
+Route::get('/under-development', function () {
+    return view('errors.under-development', [
+        'errorId' => 'MANUAL-' . strtoupper(substr(md5(uniqid()), 0, 8))
+    ]);
+})->name('under.development');
+
+// Test routes for error handling (development only)
+Route::get('/test/under-development', 'SiteController@testUnderDevelopment')->name('test.under.development');
+Route::get('/test/simulate-error', 'SiteController@simulateError')->name('test.simulate.error');
 /*
 |--------------------------------------------------------------------------
 | Web Routes

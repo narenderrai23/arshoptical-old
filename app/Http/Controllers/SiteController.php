@@ -29,7 +29,6 @@ class SiteController extends Controller
     public function __construct()
     {
         $this->activeTemplate = activeTemplate();
-        
         // Share common data across all views
         view()->composer('*', function ($view) {
             try {
@@ -187,6 +186,37 @@ class SiteController extends Controller
         }
         
         return response()->json(['success' => 'All caches cleared successfully']);
+    }
+
+    /**
+     * Test the Under Development page (for development/testing only)
+     */
+    public function testUnderDevelopment()
+    {
+        // Only allow in non-production environments
+        if (app()->environment('production')) {
+            abort(404);
+        }
+        
+        $errorId = 'TEST-' . strtoupper(substr(md5(uniqid()), 0, 8));
+        
+        return view('errors.under-development', [
+            'errorId' => $errorId
+        ]);
+    }
+
+    /**
+     * Simulate an error to test error handling (for development/testing only)
+     */
+    public function simulateError()
+    {
+        // Only allow in non-production environments
+        if (app()->environment('production')) {
+            abort(404);
+        }
+        
+        // Simulate a database error
+        throw new \Exception('Simulated database connection error for testing purposes');
     }
 
     public function pages($slug)
