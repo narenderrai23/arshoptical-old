@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# PHP 8.0 Alias Script
+# Usage: ./php80 [php command]
+
+export PHP_BINARY="/usr/local/bin/ea-php80"
+export PHP_MEMORY_LIMIT=4096M
+
+$PHP_BINARY -d memory_limit=$PHP_MEMORY_LIMIT "$@"
