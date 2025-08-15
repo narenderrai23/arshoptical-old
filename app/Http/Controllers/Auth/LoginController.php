@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Models\Cart;
 use App\Models\Extension;
 use App\Models\UserLogin;
@@ -92,17 +93,22 @@ class LoginController extends Controller {
     //     return $fieldType;
     // }
     public function findUsername() {
-        $login = request()->input('login'); // 'login' instead of 'username'
-        
-        if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
-            $fieldType = 'email';
-        } elseif (preg_match('/^[0-9]{10}$/', $login)) {
-            $fieldType = 'mobile';
-        } else {
-            // Instead of returning a response here, return null or empty string
+        $loginInput = request()->input('login'); // 'login' instead of 'username'
+
+        if (is_array($loginInput)) {
             return null;
         }
-    
+
+        $login = is_string($loginInput) ? trim($loginInput) : '';
+
+        if ($login !== '' && filter_var($login, FILTER_VALIDATE_EMAIL)) {
+            $fieldType = 'email';
+        } elseif ($login !== '' && preg_match('/^[0-9]{10}$/', $login)) {
+            $fieldType = 'mobile';
+        } else {
+            return null;
+        }
+
         request()->merge([$fieldType => $login]);
         return $fieldType;
     }
@@ -115,25 +121,24 @@ class LoginController extends Controller {
 
     protected function validateLogin(Request $request) {
         if (!$this->username()) {
-            // Redirect or throw validation error properly
-            return redirect()
-                ->route('login')
-                ->withErrors(['login' => 'Invalid login credentials.']);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'login' => 'Invalid login credentials.'
+            ]);
         }
-    
+
         $customRecaptcha = Extension::where('act', 'custom-captcha')
             ->where('status', 1)
             ->first();
-    
+
         $validation_rule = [
             $this->username() => 'required|string',
             'password'        => 'required|string',
         ];
-    
+
         if ($customRecaptcha) {
             $validation_rule['captcha'] = 'required';
         }
-    
+
         $request->validate($validation_rule);
     }
 
@@ -148,7 +153,7 @@ class LoginController extends Controller {
         return redirect()->route('user.login')->withNotify($notify);
     }
 
-    public function authenticated(Request $request, $user) {
+    public function authenticated(Request $request, User $user) {
 
         if ($user->status == 0) {
             $this->guard()->logout();
@@ -156,7 +161,6 @@ class LoginController extends Controller {
             return redirect()->route('user.login')->withNotify($notify);
         }
 
-        $user     = auth()->user();
         $user->tv = $user->ts == 1 ? 0 : 1;
         $user->save();
         $ip        = $_SERVER["REMOTE_ADDR"];

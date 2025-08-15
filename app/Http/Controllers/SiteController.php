@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Validator;
 
 class SiteController extends Controller
 {
+    protected string $activeTemplate;
 
     public function __construct()
     {
@@ -129,9 +130,12 @@ class SiteController extends Controller
         $imgWidth  = explode('x', $size)[0];
         $imgHeight = explode('x', $size)[1];
         $text      = $imgWidth . '×' . $imgHeight;
-        $fontFile  = realpath('assets/font') . DIRECTORY_SEPARATOR . 'RobotoMono-Regular.ttf';
-        $fontSize  = round(($imgWidth - 50) / 8);
 
+        // Prefer font from public/assets/font; gracefully fallback if missing
+        $fontPath = public_path('assets/font/RobotoMono-Regular.ttf');
+        $fontAvailable = is_string($fontPath) && file_exists($fontPath);
+
+        $fontSize  = round(($imgWidth - 50) / 8);
         if ($fontSize <= 9) {
             $fontSize = 9;
         }
@@ -144,13 +148,27 @@ class SiteController extends Controller
         $colorFill = imagecolorallocate($image, 100, 100, 100);
         $bgFill    = imagecolorallocate($image, 175, 175, 175);
         imagefill($image, 0, 0, $bgFill);
-        $textBox    = imagettfbbox($fontSize, 0, $fontFile, $text);
-        $textWidth  = abs($textBox[4] - $textBox[0]);
-        $textHeight = abs($textBox[5] - $textBox[1]);
-        $textX      = ($imgWidth - $textWidth) / 2;
-        $textY      = ($imgHeight + $textHeight) / 2;
+
+        $canUseTtf = $fontAvailable && function_exists('imagettfbbox') && function_exists('imagettftext');
+
         header('Content-Type: image/jpeg');
-        imagettftext($image, $fontSize, 0, $textX, $textY, $colorFill, $fontFile, $text);
+        if ($canUseTtf) {
+            $textBox    = imagettfbbox($fontSize, 0, $fontPath, $text);
+            $textWidth  = abs($textBox[4] - $textBox[0]);
+            $textHeight = abs($textBox[5] - $textBox[1]);
+            $textX      = ($imgWidth - $textWidth) / 2;
+            $textY      = ($imgHeight + $textHeight) / 2;
+            imagettftext($image, $fontSize, 0, (int)$textX, (int)$textY, $colorFill, $fontPath, $text);
+        } else {
+            // Fallback to built-in GD font when TTF is unavailable
+            $gdFont     = 5;
+            $textWidth  = imagefontwidth($gdFont) * strlen($text);
+            $textHeight = imagefontheight($gdFont);
+            $textX      = (int)(($imgWidth - $textWidth) / 2);
+            $textY      = (int)(($imgHeight - $textHeight) / 2);
+            imagestring($image, $gdFont, $textX, $textY, $text, $colorFill);
+        }
+
         imagejpeg($image);
         imagedestroy($image);
     }
@@ -343,7 +361,7 @@ class SiteController extends Controller
         $products     = Product::active()->with('reviews');
         $categoryId    = 0;
         $subcategoryId = 0;
-        $catmeta;
+        $catmeta = null;
         
         $products->sorting($orderBy);
         if ($request->route()->getName() == 'category.products') {
