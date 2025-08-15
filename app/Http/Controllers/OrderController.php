@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 
 class OrderController extends Controller
 {
+    protected $activeTemplate;
 
     public function __construct() {
         $this->activeTemplate = activeTemplate();

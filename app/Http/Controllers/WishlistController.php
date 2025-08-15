@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class WishlistController extends Controller {
+    protected $activeTemplate;
 
     public function __construct() {
         $this->activeTemplate = activeTemplate();

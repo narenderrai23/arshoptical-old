@@ -199,9 +199,8 @@ $policyPages = getContent('policy_pages.element', false, null, true);
             return true;
         }
         (function($) {
-            @if ($mobile_code)
-                $(`option[data-code={{ $mobile_code }}]`).attr('selected','');
-            @endif
+            // Auto-select first country by default since IP geolocation is disabled
+            $('select[name=country] option:first').attr('selected', 'selected');
 
             $('select[name=country]').change(function() {
                 

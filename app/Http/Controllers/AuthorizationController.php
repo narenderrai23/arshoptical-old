@@ -10,6 +10,8 @@ use Illuminate\Validation\ValidationException;
 
 class AuthorizationController extends Controller
 {
+    protected $activeTemplate;
+    
     public function __construct()
     {
         return $this->activeTemplate = activeTemplate();

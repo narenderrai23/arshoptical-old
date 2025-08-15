@@ -12,6 +12,8 @@ use App\Models\ShippingMethod;
 use Illuminate\Http\Request;
 
 class CheckoutController extends Controller {
+    protected $activeTemplate;
+    
     public function __construct() {
         $this->activeTemplate = activeTemplate();
     }

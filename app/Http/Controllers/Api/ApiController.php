@@ -32,8 +32,10 @@ class ApiController
 {
 
 
-public function __construct() {
-    session_start();
+    protected $activeTemplate;
+    
+    public function __construct() {
+        session_start();
         return $this->activeTemplate = activeTemplate();
     }
 

@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class TicketController extends Controller {
+    protected $activeTemplate;
 
     public function __construct() {
         $this->activeTemplate = activeTemplate();

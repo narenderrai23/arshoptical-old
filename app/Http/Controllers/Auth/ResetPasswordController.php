@@ -62,13 +62,12 @@ class ResetPasswordController extends Controller
         $user->password = bcrypt($request->password);
         $user->save();
 
-        $userIpInfo = getIpInfo();
         $userBrowser = osBrowser();
         sendEmail($user, 'PASS_RESET_DONE', [
             'operating_system' => @$userBrowser['os_platform'],
             'browser' => @$userBrowser['browser'],
-            'ip' => @$userIpInfo['ip'],
-            'time' => @$userIpInfo['time']
+            'ip' => request()->ip(),
+            'time' => now()->format('d-m-Y h:i:s A')
         ]);
 
 

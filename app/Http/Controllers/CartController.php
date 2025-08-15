@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Validator;
 
 class CartController extends Controller
 {
+    protected $activeTemplate;
+    
     public function __construct()
     {
         $this->activeTemplate = activeTemplate();

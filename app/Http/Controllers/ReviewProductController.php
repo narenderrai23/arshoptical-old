@@ -8,6 +8,7 @@ use App\Models\Review;
 use Illuminate\Http\Request;
 
 class ReviewProductController extends Controller {
+    protected $activeTemplate;
     
     public function __construct() {
         $this->activeTemplate = activeTemplate();

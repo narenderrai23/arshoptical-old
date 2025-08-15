@@ -182,12 +182,12 @@ class RegisterController extends Controller
             $userLogin->country_code = $exist->country_code;
             $userLogin->country =  $exist->country;
         }else{
-            $info = json_decode(json_encode(getIpInfo()), true);
-            $userLogin->longitude =  @implode(',',$info['long']);
-            $userLogin->latitude =  @implode(',',$info['lat']);
-            $userLogin->city =  @implode(',',$info['city']);
-            $userLogin->country_code = @implode(',',$info['code']);
-            $userLogin->country =  @implode(',', $info['country']);
+            // IP geolocation removed - setting default values
+            $userLogin->longitude =  null;
+            $userLogin->latitude =  null;
+            $userLogin->city =  null;
+            $userLogin->country_code = null;
+            $userLogin->country =  null;
         }
 
         $userAgent = osBrowser();

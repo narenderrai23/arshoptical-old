@@ -106,14 +106,13 @@ class ForgotPasswordController extends Controller
         $password->created_at = \Carbon\Carbon::now();
         $password->save();
 
-        $userIpInfo = getIpInfo();
         $userBrowserInfo = osBrowser();
         sendEmail($user, 'PASS_RESET_CODE', [
             'code' => $code,
             'operating_system' => @$userBrowserInfo['os_platform'],
             'browser' => @$userBrowserInfo['browser'],
-            'ip' => @$userIpInfo['ip'],
-            'time' => @$userIpInfo['time']
+            'ip' => request()->ip(),
+            'time' => now()->format('d-m-Y h:i:s A')
         ]);
 
         $pageTitle = 'Account Recovery';

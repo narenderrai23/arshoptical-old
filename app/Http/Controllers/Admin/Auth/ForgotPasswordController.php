@@ -74,14 +74,13 @@ class ForgotPasswordController extends Controller
         $adminPasswordReset->created_at = date("Y-m-d h:i:s");
         $adminPasswordReset->save();
 
-        $userIpInfo = getIpInfo();
         $userBrowser = osBrowser();
         sendEmail($user, 'PASS_RESET_CODE', [
             'code' => $code,
             'operating_system' => $userBrowser['os_platform'],
             'browser' => $userBrowser['browser'],
-            'ip' => $userIpInfo['ip'],
-            'time' => $userIpInfo['time']
+            'ip' => request()->ip(),
+            'time' => now()->format('d-m-Y h:i:s A')
         ]);
 
         $pageTitle = 'Account Recovery';

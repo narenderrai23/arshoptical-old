@@ -50,10 +50,8 @@ class RegisterController extends Controller
     public function showRegistrationForm()
     {
         $pageTitle   = "Sign Up";
-        $info        = json_decode(json_encode(getIpInfo()), true);
-        $mobile_code = @implode(',', $info['code']);
         $countries   = json_decode(file_get_contents(resource_path('views/partials/country.json')));
-        return view($this->activeTemplate . 'user.auth.register', compact('pageTitle', 'mobile_code', 'countries'));
+        return view($this->activeTemplate . 'user.auth.register', compact('pageTitle', 'countries'));
     }
 
     /**
@@ -224,12 +222,12 @@ class RegisterController extends Controller
             $userLogin->country_code = $existing->country_code;
             $userLogin->country      = $existing->country;
         } else {
-            $info = json_decode(json_encode(getIpInfo()), true);
-            $userLogin->longitude    = isset($info['long']) ? implode(',', (array) $info['long']) : null;
-            $userLogin->latitude     = isset($info['lat']) ? implode(',', (array) $info['lat']) : null;
-            $userLogin->city         = isset($info['city']) ? implode(',', (array) $info['city']) : null;
-            $userLogin->country_code = isset($info['code']) ? implode(',', (array) $info['code']) : null;
-            $userLogin->country      = isset($info['country']) ? implode(',', (array) $info['country']) : null;
+            // IP geolocation removed - setting default values
+            $userLogin->longitude    = null;
+            $userLogin->latitude     = null;
+            $userLogin->city         = null;
+            $userLogin->country_code = null;
+            $userLogin->country      = null;
         }
 
         $userAgent          = osBrowser();

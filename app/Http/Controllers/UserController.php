@@ -18,6 +18,8 @@ use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller {
     
+    protected $activeTemplate;
+    
     public function __construct() {
         $this->activeTemplate = activeTemplate();
     }
@@ -42,10 +44,8 @@ class UserController extends Controller {
     public function profile() {
         $pageTitle   = "Profile Setting";
         $user        = Auth::user();
-        $info        = json_decode(json_encode(getIpInfo()), true);
-        $mobile_code = @implode(',', $info['code']);
         $countries   = json_decode(file_get_contents(resource_path('views/partials/country.json')));
-        return view($this->activeTemplate . 'user.profile_setting', compact('pageTitle', 'user', 'countries', 'mobile_code'));
+        return view($this->activeTemplate . 'user.profile_setting', compact('pageTitle', 'user', 'countries'));
     }
 
     public function submitProfile(Request $request) {
