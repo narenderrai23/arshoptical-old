@@ -6,6 +6,7 @@ use App\Models\AdminNotification;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Frontend;
+use App\Models\GeneralSetting;
 use App\Models\Language;
 use App\Models\Order;
 use App\Models\Blogs;
@@ -18,6 +19,7 @@ use App\Models\SupportMessage;
 use App\Models\SupportTicket;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class SiteController extends Controller
@@ -27,19 +29,156 @@ class SiteController extends Controller
     public function __construct()
     {
         $this->activeTemplate = activeTemplate();
+        
+        // Share common data across all views
+        view()->composer('*', function ($view) {
+            try {
+                // Cache common data that's used across multiple views
+                $commonData = cache()->remember('common_data_' . $this->activeTemplate, 1440, function () { // Cache for 24 hours
+                    return [
+                        'siteSettings' => GeneralSetting::first(['sitename', 'base_color', 'cur_text', 'cur_sym']),
+                        'languages' => Language::where('status', 1)->get(['id', 'code', 'name']),
+                    ];
+                });
+                
+                $view->with($commonData);
+            } catch (\Exception $e) {
+                // Log error but don't break the view
+                Log::error('View composer error: ' . $e->getMessage());
+                
+                // Provide fallback data
+                $view->with([
+                    'siteSettings' => null,
+                    'languages' => collect([])
+                ]);
+            }
+        });
     }
 
     public function index()
     {
-        $count             = Page::where('tempname', $this->activeTemplate)->where('slug', 'home')->count();
-        $pageTitle         = 'Home';
-        $sections          = Page::where('tempname', $this->activeTemplate)->where('slug', 'home')->first();
-        $todayDealProducts = Product::active()->where('today_deals', 1)->latest()->take(8)->get();
-        $cats = Category::active()->where('featured', 1)->orderBy('orderno')->take(6)->get();
-        $categories = Category::active()->orderBy('orderno')->get();
-        $brands = Brand::where('status', 1)->where('featured', 1)->latest()->take(2)->get();
-        $products = Product::active()->where('hot_deals', 1)->latest()->with('reviews')->take(6)->get();
-        return view($this->activeTemplate . 'home', compact('pageTitle', 'sections', 'todayDealProducts', 'categories', 'brands', 'products', 'cats'));
+        $pageTitle = 'Home';
+        
+        // Cache frequently accessed data for better performance (24-hour cache)
+        $cacheKey = 'home_page_data_' . $this->activeTemplate;
+        
+        $data = cache()->remember($cacheKey, 1440, function () { // Cache for 24 hours
+            return [
+                'sections' => Page::where('tempname', $this->activeTemplate)
+                    ->where('slug', 'home')
+                    ->select('id', 'tempname', 'slug', 'secs') // Select only needed fields
+                    ->first(),
+                    
+                'todayDealProducts' => Product::active()
+                    ->where('today_deals', 1)
+                    ->select('id', 'name', 'image', 'price', 'discount', 'status', 'today_deals') // Select only needed fields
+                    ->with(['category:id,name,status', 'brand:id,name,status'])
+                    ->latest()
+                    ->take(8)
+                    ->get(),
+                    
+                'cats' => Category::active()
+                    ->where('featured', 1)
+                    ->select('id', 'name', 'image', 'status', 'featured', 'orderno') // Select only needed fields
+                    ->with(['subcategories' => function($query) {
+                        $query->select('id', 'category_id', 'name', 'status')
+                              ->where('status', 1);
+                    }])
+                    ->orderBy('orderno')
+                    ->take(6)
+                    ->get(),
+                    
+                'categories' => Category::active()
+                    ->select('id', 'name', 'image', 'status', 'orderno') // Select only needed fields
+                    ->with(['subcategories' => function($query) {
+                        $query->select('id', 'category_id', 'name', 'status')
+                              ->where('status', 1);
+                    }])
+                    ->orderBy('orderno')
+                    ->get(),
+                    
+                'brands' => Brand::where('status', 1)
+                    ->where('featured', 1)
+                    ->select('id', 'name', 'image', 'status', 'featured') // Select only needed fields
+                    ->latest()
+                    ->take(2)
+                    ->get(),
+                    
+                'products' => Product::active()
+                    ->where('hot_deals', 1)
+                    ->select('id', 'name', 'image', 'price', 'discount', 'status', 'hot_deals') // Select only needed fields
+                    ->with(['category:id,name,status', 'brand:id,name,status'])
+                    ->latest()
+                    ->with(['reviews' => function($query) {
+                        $query->select('id', 'product_id', 'stars')
+                              ->where('stars', '>', 0); // Only get reviews with stars
+                    }])
+                    ->take(6)
+                    ->get()
+            ];
+        });
+        
+        return view($this->activeTemplate . 'home', array_merge(
+            ['pageTitle' => $pageTitle], 
+            $data
+        ));
+    }
+
+    /**
+     * Clear home page cache when data is updated (24-hour cache)
+     */
+    private function clearHomePageCache()
+    {
+        $cacheKey = 'home_page_data_' . $this->activeTemplate;
+        cache()->forget($cacheKey);
+    }
+
+    /**
+     * Clear all caches (useful for admin operations)
+     */
+    public function clearAllCaches()
+    {
+        $this->clearHomePageCache();
+        
+        // Clear common data cache
+        $commonCacheKey = 'common_data_' . $this->activeTemplate;
+        cache()->forget($commonCacheKey);
+        
+        // Clear other related caches
+        cache()->forget('products_cache');
+        cache()->forget('categories_cache');
+        cache()->forget('brands_cache');
+        
+        // Clear any other potential cache keys
+        $cacheKeys = [
+            'home_page_data_*',
+            'common_data_*',
+            'products_cache',
+            'categories_cache',
+            'brands_cache',
+            'featured_products',
+            'hot_deals_products',
+            'today_deals_products',
+            'featured_categories',
+            'featured_brands'
+        ];
+        
+        foreach ($cacheKeys as $key) {
+            if (str_contains($key, '*')) {
+                // Handle wildcard keys
+                $pattern = str_replace('*', '', $key);
+                $keys = cache()->get('cache_keys', []);
+                foreach ($keys as $cacheKey) {
+                    if (str_contains($cacheKey, $pattern)) {
+                        cache()->forget($cacheKey);
+                    }
+                }
+            } else {
+                cache()->forget($key);
+            }
+        }
+        
+        return response()->json(['success' => 'All caches cleared successfully']);
     }
 
     public function pages($slug)
@@ -206,7 +345,13 @@ class SiteController extends Controller
     {
         $pageTitle    = 'All Categories';
         $emptyMessage = 'No category found';
-        $categoryList = Category::where('status', 1)->orderBy('name')->paginate(getPaginate());
+        $categoryList = Category::where('status', 1)
+            ->with(['subcategories' => function($query) {
+                $query->select('id', 'category_id', 'name', 'status')
+                      ->where('status', 1);
+            }])
+            ->orderBy('name')
+            ->paginate(getPaginate());
         return view($this->activeTemplate . 'all_category', compact('pageTitle', 'emptyMessage', 'categoryList'));
     }
 
@@ -278,7 +423,14 @@ class SiteController extends Controller
         $brandId    = array_unique($brandArray);
 
 
-        $categoryList = Category::whereIn('id', $categoryId)->where('status', 1)->withCount('product')->get();
+        $categoryList = Category::whereIn('id', $categoryId)
+            ->where('status', 1)
+            ->with(['subcategories' => function($query) {
+                $query->select('id', 'category_id', 'name', 'status')
+                      ->where('status', 1);
+            }])
+            ->withCount('product')
+            ->get();
         $brands       = Brand::whereIn('id', $brandId)->where('status', 1)->withCount('product')->get();
         $products     = $products->latest()->paginate(getPaginate());
 
@@ -424,7 +576,14 @@ class SiteController extends Controller
         }
 
         $categoryId   = array_unique($categoryArray);
-        $categoryList = Category::whereIn('id', $categoryId)->where('status', 1)->withCount('product')->get();
+        $categoryList = Category::whereIn('id', $categoryId)
+            ->where('status', 1)
+            ->with(['subcategories' => function($query) {
+                $query->select('id', 'category_id', 'name', 'status')
+                      ->where('status', 1);
+            }])
+            ->withCount('product')
+            ->get();
         $products     = $products->latest()->paginate(getPaginate());
 
         return view($this->activeTemplate . 'products.brand_products', compact('pageTitle', 'emptyMessage', 'products', 'minPrice', 'maxPrice', 'categoryList', 'brandId'));

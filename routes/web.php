@@ -89,6 +89,9 @@ Route::namespace ('Admin')->prefix('admin')->name('admin.')->group(function () {
         Route::post('request-report', 'AdminController@reportSubmit');
 
         Route::get('system-info', 'AdminController@systemInfo')->name('system.info');
+        
+        // Cache Management
+        Route::get('clear-cache', 'SiteController@clearAllCaches')->name('clear.cache');
 
         // Users Manager
         Route::get('customers', 'ManageUsersController@allUsers')->name('users.all');

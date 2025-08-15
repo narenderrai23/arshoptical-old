@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\AdminNotification;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Deposit;
 use App\Models\Frontend;
@@ -10,9 +11,18 @@ use App\Models\GeneralSetting;
 use App\Models\Language;
 use App\Models\Order;
 use App\Models\Page;
+use App\Models\Product;
+use App\Models\Review;
+use App\Models\SubCategory;
 use App\Models\SupportTicket;
 use App\Models\User;
 use App\Models\Withdrawal;
+use App\Observers\BrandObserver;
+use App\Observers\CategoryObserver;
+use App\Observers\PageObserver;
+use App\Observers\ProductObserver;
+use App\Observers\ReviewObserver;
+use App\Observers\SubCategoryObserver;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\ServiceProvider;
 
@@ -71,6 +81,14 @@ class AppServiceProvider extends ServiceProvider {
         if ($general->force_ssl) {
             \URL::forceScheme('https');
         }
+
+        // Register model observers for automatic cache clearing
+        Product::observe(ProductObserver::class);
+        Category::observe(CategoryObserver::class);
+        Brand::observe(BrandObserver::class);
+        Page::observe(PageObserver::class);
+        SubCategory::observe(SubCategoryObserver::class);
+        Review::observe(ReviewObserver::class);
 
         Paginator::useBootstrap();
     }
