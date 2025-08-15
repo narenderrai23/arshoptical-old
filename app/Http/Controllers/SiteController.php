@@ -35,10 +35,18 @@ class SiteController extends Controller
             try {
                 // Cache common data that's used across multiple views
                 $commonData = cache()->remember('common_data_' . $this->activeTemplate, 1440, function () { // Cache for 24 hours
-                    return [
-                        'siteSettings' => GeneralSetting::first(['sitename', 'base_color', 'cur_text', 'cur_sym']),
-                        'languages' => Language::where('status', 1)->get(['id', 'code', 'name']),
-                    ];
+                    try {
+                        return [
+                            'siteSettings' => GeneralSetting::first(['sitename', 'base_color', 'cur_text', 'cur_sym']),
+                            'language' => Language::orderBy('is_default', 'desc')->get(['id', 'code', 'name']),
+                        ];
+                    } catch (\Exception $e) {
+                        Log::error('Language query error: ' . $e->getMessage());
+                        return [
+                            'siteSettings' => null,
+                            'language' => collect([]),
+                        ];
+                    }
                 });
                 
                 $view->with($commonData);
