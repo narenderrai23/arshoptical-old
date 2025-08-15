@@ -116,20 +116,29 @@ class LoginController extends Controller {
         return $this->findUsername(); 
     }
 
+    protected function attemptLogin(Request $request)
+    {
+        $credentials = $request->only('login', 'password');
+        $field = $this->username();
+        
+        // Map the login field to the correct database field
+        $credentials[$field] = $credentials['login'];
+        unset($credentials['login']);
+        
+        return $this->guard()->attempt($credentials, $request->filled('remember'));
+    }
 
-    
+    protected function sendFailedLoginResponse(Request $request)
+    {
+        $notify[] = ['error', 'Invalid login credentials.'];
+        return back()->withNotify($notify)->withInput($request->only('login'));
+    }
 
     protected function validateLogin(Request $request) {
-
-        if (!$this->username()) {
-            return redirect()->route('user.login')
-                ->withErrors(['login' => 'Invalid login credentials.'])
-                ->withInput();
-        }
         $customRecaptcha = Extension::where('act', 'custom-captcha')->where('status', 1)->first();
         $validation_rule = [
-            $this->username() => 'required|string',
-            'password'        => 'required|string',
+            'login' => 'required|string',
+            'password' => 'required|string',
         ];
     
         if ($customRecaptcha) {

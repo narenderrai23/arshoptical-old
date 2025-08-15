@@ -13,6 +13,15 @@ use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\PHPMailer;
 //use Auth;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+use Intervention\Image\Facades\Image;
+
+if (!function_exists('str')) {
+function str($value = null)
+{
+    return \Illuminate\Support\Str::of($value);
+}
+}
 function sidebarVariation()
 {
 

@@ -25,6 +25,7 @@ use App\Observers\ReviewObserver;
 use App\Observers\SubCategoryObserver;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\View\Compilers\BladeCompiler;
 
 class AppServiceProvider extends ServiceProvider {
     /**
@@ -91,6 +92,15 @@ class AppServiceProvider extends ServiceProvider {
         Review::observe(ReviewObserver::class);
 
         Paginator::useBootstrap();
+
+        // Polyfill for IDE tools expecting newer Blade methods on Laravel 8
+        $blade = $this->app->make('blade.compiler');
+        if (!method_exists($blade, 'getAnonymousComponentNamespaces')) {
+            // Method doesn't exist in Laravel 8, skip polyfill
+        }
+        if (!method_exists($blade, 'getAnonymousComponentPaths')) {
+            // Method doesn't exist in Laravel 8, skip polyfill
+        }
     }
 
 }

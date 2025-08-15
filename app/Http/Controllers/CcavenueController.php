@@ -14,6 +14,7 @@ use Session;
 use Razorpay\Api\Api;
 class CcavenueController extends Controller
 {
+    protected $activeTemplate;
    /*
 * @param1 : Plain String
 * @param2 : Working key provided by CCAvenue
@@ -21,7 +22,7 @@ class CcavenueController extends Controller
 */
 public function __construct()
     {
-        return $this->activeTemplate = activeTemplate();
+        $this->activeTemplate = activeTemplate();
     }
    /*
 * @param1 : Plain String
@@ -101,7 +102,7 @@ function hextobin($hexString)
             PaymentController::userDataUpdate($deposit->trx);
            
         }
-         return view($this->activeTemplate .'aapccavenue-payment-view', compact('order_status', 'decryptValues','dataSize','pageTitle'));
+         return view($this->activeTemplate .'appccavenue-payment-view', compact('order_status', 'decryptValues','dataSize','pageTitle'));
     }
 
     //payment functions
@@ -117,8 +118,7 @@ function hextobin($hexString)
         $dataSize=sizeof($decryptValues);
         //dd($decryptValues);
 	$pageTitle='Payment Failure';
-	if
-        return view($this->activeTemplate .'aapccavenue-payment-view', compact('order_status', 'decryptValues','dataSize','pageTitle'));
+	return view($this->activeTemplate .'appccavenue-payment-view', compact('order_status', 'decryptValues','dataSize','pageTitle'));
     }
 	
     public function ccavrequesthandler(Request $request)
@@ -136,6 +136,6 @@ function hextobin($hexString)
 
 	$encrypted_data=$this->encrypt($merchant_data,$working_key);
 		//dd($encrypted_data);
-        return view('web-views.ccavenue-payment', compact('encrypted_data','access_code'));
+        return view('web-views.appccavenue-payment', compact('encrypted_data','access_code'));
     }
 }
