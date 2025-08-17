@@ -3,7 +3,7 @@
     <div class="row">
         <div class="col-md-12">
             <div class="card">
-                <form action="{{ route('admin.email.template.setting') }}" method="POST">
+                <form action="{{ route('admin.email.template.setting.update') }}" method="POST">
                     @csrf
                     <div class="card-body">
                         <div class="form-row">

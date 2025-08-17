@@ -4,7 +4,7 @@
     <div class="row mb-none-30">
         <div class="col-xl-12">
             <div class="card">
-                <form action="{{ route('admin.users.email.single', $user->id) }}" method="POST">
+                <form action="{{ route('admin.users.email.single.post', $user->id) }}" method="POST">
                     @csrf
                     <div class="card-body">
                         <div class="form-row">

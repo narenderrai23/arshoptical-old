@@ -5,7 +5,7 @@
 
         <div class="col-xl-12">
             <div class="card">
-                <form action="{{ route('admin.subscriber.sendEmail') }}" method="POST">
+                <form action="{{ route('admin.subscriber.sendEmail.post') }}" method="POST">
                     @csrf
                     <div class="card-body">
                         <div class="form-row">

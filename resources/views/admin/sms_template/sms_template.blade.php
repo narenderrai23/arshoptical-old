@@ -37,7 +37,7 @@
         <div class="col-lg-12 col-md-12 mb-30">
             <div class="card">
                 <div class="card-body">
-                    <form action="{{ route('admin.sms.template.global') }}" method="POST">
+                    <form action="{{ route('admin.sms.template.global.update') }}" method="POST">
                         @csrf
                         <div class="card-body">
                             <div class="form-row">

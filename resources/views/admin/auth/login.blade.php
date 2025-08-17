@@ -5,7 +5,7 @@
         <div class="form-wrapper">
             <h4 class="logo-text mb-15">@lang('Welcome to') <strong>{{__($general->sitename)}}</strong></h4>
             <p>{{__($pageTitle)}} @lang('to') {{__($general->sitename)}} @lang('dashboard')</p>
-            <form action="{{ route('admin.login') }}" method="POST" class="cmn-form mt-30">
+            <form action="{{ route('admin.login.submit') }}" method="POST" class="cmn-form mt-30">
                 @csrf
                 <div class="form-group">
                     <label for="email">@lang('Username')</label>

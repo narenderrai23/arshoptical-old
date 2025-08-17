@@ -40,7 +40,7 @@
         <div class="col-md-12">
             <div class="card mt-5">
                 <div class="card-body">
-                    <form action="{{ route('admin.email.template.global') }}" method="POST">
+                    <form action="{{ route('admin.email.template.global.update') }}" method="POST">
                         @csrf
                         <div class="form-row">
 
