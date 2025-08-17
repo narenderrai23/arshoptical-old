@@ -4,6 +4,7 @@ namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -14,7 +15,7 @@ class Handler extends ExceptionHandler
      * @var array
      */
     protected $dontReport = [
-        //
+        ValidationException::class,
     ];
 
     /**
@@ -51,6 +52,12 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $e)
     {
+        // Let Laravel handle validation errors normally (422 with errors),
+        // do not override with Under Development page in production.
+        if ($e instanceof ValidationException) {
+            return parent::render($request, $e);
+        }
+
         // Check if Under Development page is enabled
         $enableUnderDevelopment = config('error-handling.enable_under_development', true);
         
